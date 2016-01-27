@@ -50,10 +50,14 @@ POSSIBILITY OF SUCH DAMAGE.
 
 //Subscribe Messages
 #include <sensor_msgs/Image.h>
-#include <stereo_msgs/DisparityImage.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
+
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 // Image Transport
 #include <image_transport/image_transport.h>
@@ -67,12 +71,13 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <dynamic_reconfigure/server.h>
 #include <detection/HaarDispAdaDetectorConfig.h>
 
-using namespace stereo_msgs;
+
 using namespace message_filters::sync_policies;
 using namespace opt_msgs;
 using namespace sensor_msgs;
 using namespace sensor_msgs::image_encodings;
 using sensor_msgs::Image;
+using sensor_msgs::PointCloud2;
 using cv_bridge::CvImagePtr;
 using std::vector;
 using std::string;
@@ -90,19 +95,18 @@ class HaarDispAdaNode
     ros::NodeHandle node_;
 
     // Subscribe to Messages
-    message_filters::Subscriber<DisparityImage> sub_disparity_;
+    message_filters::Subscriber<PointCloud2> sub_pointcloud_;
     message_filters::Subscriber<Image> sub_image_;
     message_filters::Subscriber<opt_msgs::DetectionArray> sub_detections_;
 
     // Define the Synchronizer
-    typedef ApproximateTime<Image, DisparityImage, opt_msgs::DetectionArray> ApproximatePolicy;
+    typedef ApproximateTime<PointCloud2, Image, opt_msgs::DetectionArray> ApproximatePolicy;
     typedef message_filters::Synchronizer<ApproximatePolicy> ApproximateSync;
     boost::shared_ptr<ApproximateSync> approximate_sync_;
 
     // Messages to Publish
     ros::Publisher pub_rois_;
     ros::Publisher pub_Color_Image_;
-    ros::Publisher pub_Disparity_Image_;
     ros::Publisher pub_detections_;
 
     Rois output_rois_;
@@ -174,18 +178,17 @@ class HaarDispAdaNode
       // Published Messages
       pub_rois_           = node_.advertise<Rois>("/HaarDispAdaOutputRois",qs);
       pub_Color_Image_    = node_.advertise<Image>("/HaarDispAdaColorImage",qs);
-      pub_Disparity_Image_= node_.advertise<DisparityImage>("/HaarDispAdaDisparityImage",qs);
       pub_detections_ = node_.advertise<DetectionArray>("/detector/detections",3);
 
       // Subscribe to Messages
       sub_image_.subscribe(node_,"/Color_Image",qs);
-      sub_disparity_.subscribe(node_, "/Disparity_Image",qs);
+      sub_pointcloud_.subscribe(node_, "/PointCloud",qs);
       sub_detections_.subscribe(node_,"/input_detections",qs);
 
       // Sync the Synchronizer
       approximate_sync_.reset(new ApproximateSync(ApproximatePolicy(qs),
-          sub_image_,
-          sub_disparity_,
+          sub_pointcloud_,
+    	  sub_image_,
           sub_detections_));
 
       approximate_sync_->registerCallback(boost::bind(&HaarDispAdaNode::imageCb,
@@ -198,7 +201,7 @@ class HaarDispAdaNode
       ReconfigureServer::CallbackType f = boost::bind(&HaarDispAdaNode::configCb, this, _1, _2);
       reconfigure_server_.reset(new ReconfigureServer(config_mutex_, node_));
       reconfigure_server_->setCallback(f);
-    }
+   }
 
     int
     get_mode()
@@ -259,10 +262,35 @@ class HaarDispAdaNode
       }
     }
 
+
     void
-    imageCb(const ImageConstPtr& image_msg,
-        const DisparityImageConstPtr& disparity_msg,
-        const opt_msgs::DetectionArray::ConstPtr& detection_msg)
+	convertPointCloud2Depth(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg, cv::Mat& dmatrix)
+    {
+        pcl::PointCloud <pcl::PointXYZRGB> depth_cloud;
+        pcl::fromROSMsg(*cloud_msg, depth_cloud);
+
+        float f = 575.8157348632812; 	// focal length
+        float T = 0.075;	// baseline distance
+
+        dmatrix.create(depth_cloud.height, depth_cloud.width, CV_32FC1);
+    	uchar* depth_image_ptr = (uchar*)dmatrix.data;
+		 for (int v = 0; v < (int)depth_cloud.height; v++)
+		 {
+			 int depth_base_index = dmatrix.step * v;
+			 for (int u = 0; u < (int)depth_cloud.width; u++)
+			 {
+				 int depth_index = depth_base_index + 1 * u * sizeof(float);
+				 float* depth_data_ptr = (float*)(depth_image_ptr + depth_index);
+				 pcl::PointXYZRGB point_xyz = depth_cloud(u, v);
+				 depth_data_ptr[0] =(isnan(point_xyz.z)) ? 0.f : (f / (point_xyz.z * (1/T)));	// get disparity from depth
+			 }
+		 }
+    }
+
+    void
+    imageCb(const PointCloud2ConstPtr& cloud_msg,
+    		const ImageConstPtr& image_msg,
+			const opt_msgs::DetectionArray::ConstPtr& detection_msg)
     {
       // Callback for people detection:
       bool label_all;
@@ -277,12 +305,10 @@ class HaarDispAdaNode
       int numSamples;
       double temp=0.0;
 
-      // check encoding and create an intensity image from disparity image
-      assert(disparity_msg->image.encoding == image_encodings::TYPE_32FC1);
-      cv::Mat_<float> dmatrix(disparity_msg->image.height,
-          disparity_msg->image.width,
-          (float*) &disparity_msg->image.data[0],
-          disparity_msg->image.step);
+
+     cv::Mat dmatrix;
+     convertPointCloud2Depth(cloud_msg, dmatrix);
+
 
       if(!node_.getParam("UseMissingDataMask",HDAC_.useMissingDataMask_)){
         HDAC_.useMissingDataMask_ = false;
@@ -344,8 +370,8 @@ class HaarDispAdaNode
         int w = h * 2 / 3.0;
         int x = std::max(0, int(centroid2d(0) - w / 2.0));
         int y = std::max(0, int(top2d(1)));
-        h = std::min(int(disparity_msg->image.height - y), int(h));
-        w = std::min(int(disparity_msg->image.width - x), int(w));
+        h = std::min(int(cloud_msg->height - y), int(h));
+        w = std::min(int(cloud_msg->width - x), int(w));
 
         Rect R(x,y,w,h);
         R_in.push_back(R);
@@ -353,8 +379,9 @@ class HaarDispAdaNode
       }
 
       // do the work of the node
-      switch(get_mode()){
-        case DETECT:
+      switch(get_mode())
+	  {
+      	case DETECT:
           // Perform people detection within the input rois:
           label_all = true;
           HDAC_.detect(R_in,L_in,dmatrix,R_out,L_out,C_out,label_all);
@@ -381,9 +408,9 @@ class HaarDispAdaNode
           }
           pub_rois_.publish(output_rois_);
           pub_Color_Image_.publish(image_msg);
-          pub_Disparity_Image_.publish(disparity_msg);
           pub_detections_.publish(output_detection_msg_);
           break;
+
         case ACCUMULATE:
           numSamples = HDAC_.addToTraining(R_in,L_in,dmatrix);
           param_name = "num_Training_Samples";
@@ -398,6 +425,7 @@ class HaarDispAdaNode
             }
           }
           break;
+
         case TRAIN:
           param_name = "classifier_file";
           node_.param(param_name,cfnm,std::string("/home/clewis/classifiers/test.xml"));
@@ -410,9 +438,11 @@ class HaarDispAdaNode
           node_.setParam("mode", std::string("evaluate"));
           ROS_ERROR("DONE TRAINING, switching to evaluate mode");
           break;
+
         case EVALUATE:
         {
-          if(!HDAC_.loaded){
+          if(!HDAC_.loaded)
+		  {
             param_name = "classifier_file";
             node_.param(param_name,cfnm,std::string("test.xml"));
             std::cout << "HaarDispAda LOADING " << cfnm.c_str() << std::endl;
@@ -427,7 +457,8 @@ class HaarDispAdaNode
           int tp_in_list=0;
 
           // count the input labels
-          for(unsigned int i=0; i<R_in.size();i++){
+          for(unsigned int i=0; i<R_in.size();i++)
+		  {
             if(L_in[i] == 0 || L_in[i] == -1) total0_in_list++;
             if(L_in[i] == 1) total1_in_list++;
           }
@@ -435,11 +466,13 @@ class HaarDispAdaNode
           num_class1 += total1_in_list;
 
           // count the output labels which have the correct and incorrect label
-          for(unsigned int i=0; i<R_out.size();i++){
-            if((L_out[i] == 1) | (use_disparity)){
-              tp_in_list++;
-            }
-            else fp_in_list++;
+          for(unsigned int i=0; i<R_out.size();i++)
+		  {
+            if((L_out[i] == 1) | (use_disparity))
+				tp_in_list++;
+            
+            else 
+				fp_in_list++;
           }
           num_TP_class1 += tp_in_list;
           num_FP_class1 += fp_in_list;
@@ -454,6 +487,7 @@ class HaarDispAdaNode
 
         // TODO
         break;
+
         case LOAD:
           param_name = "classifier_file";
           node_.param(param_name,cfnm,std::string("test.xml"));

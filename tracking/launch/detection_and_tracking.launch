@@ -1,15 +1,21 @@
 <launch>
 
-  <!-- People detection -->
-  <include file="$(find detection)/launch/detector_depth.launch"/>
+	<arg name="camera" default="sensorring_cam3d" />
+		
+	<!-- People detection -->
+	<include file="$(find detection)/launch/detector_depth.launch">
+		<arg name="camera" value="$(arg camera)" />
+	</include>
 
-  <!-- People tracking -->
-  <include file="$(find tracking)/launch/tracker.launch"/>
+	<!-- People tracking -->
+	<include file="$(find tracking)/launch/tracker.launch"/>
 
-  <!-- UDP messaging -->
-  <include file="$(find opt_utils)/launch/ros2udp_converter.launch"/>
+	<!-- UDP messaging -->
+	<include file="$(find opt_utils)/launch/ros2udp_converter.launch"/>
 
-  <!-- Visualization -->
-  <include file="$(find opt_utils)/launch/visualization.launch"/>
+	<!-- Visualization -->
+	<include file="$(find opt_utils)/launch/visualization.launch"> 
+		<arg name="camera" value="$(arg camera)" />
+	</include> 
 
 </launch>
