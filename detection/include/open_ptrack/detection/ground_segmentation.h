@@ -44,9 +44,11 @@
 #include <pcl/segmentation/organized_multi_plane_segmentation.h>
 #include <pcl/features/integral_image_normal.h>
 #include <pcl/features/normal_3d.h>
+#include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/sample_consensus/ransac.h>
 #include <pcl/filters/extract_indices.h>
+#include <pcl/filters/passthrough.h>
 #include <tf/transform_listener.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
