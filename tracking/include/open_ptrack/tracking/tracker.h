@@ -47,6 +47,8 @@
 #include <opt_msgs/IDArray.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <cob_perception_msgs/DetectionArray.h>
+
 namespace open_ptrack
 {
   namespace tracking
@@ -204,14 +206,24 @@ namespace open_ptrack
         toMsg(opt_msgs::TrackArray::Ptr& msg);
 
         /**
+         * \brief Writes the state of each track into a cob_perception_msgs::DetectionArray message.
+         *
+         * \param[in] msg The TrackArray message to fill.
+         */
+        void
+		toMsg(cob_perception_msgs::DetectionArray::Ptr& msg);
+
+
+        /**
          * \brief Writes the state of tracks with a given frame id into a TrackArray message.
          *
          * \param[in] msg The TrackArray message to fill.
          * \param[in] source_frame_id Frame id of tracks that have to be written to msg.
          */
+/*
         void
         toMsg(opt_msgs::TrackArray::Ptr& msg, std::string& source_frame_id);
-
+*/
         /**
          * \brief Writes the ID of each alive track into an IDArray message.
          *

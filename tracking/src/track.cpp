@@ -382,7 +382,6 @@ namespace open_ptrack
       double _x2, _y2;
       tmp_filter_->getState(_x2, _y2);
       Eigen::Vector3d centroid2(_x2, _y2, z_);
-      centroid2 = detection_source_->transformToCam(centroid2);
 
       if(visibility_ == Track::NOT_VISIBLE)
         return;
@@ -409,12 +408,7 @@ namespace open_ptrack
 
       //TODO loop for each detection source
 
-      centroid = detection_source_->transformToCam(centroid);
       cv::circle(detection_source_->getImage(), cv::Point(centroid(0), centroid(1)), 5, color, 1);
-      top = detection_source_->transformToCam(top);
-      bottom = detection_source_->transformToCam(bottom);
-      for(std::vector<Eigen::Vector3d>::iterator it = points.begin(); it != points.end(); it++)
-        *it = detection_source_->transformToCam(*it);
 
       // Draw a paralellepiped around the person:
       for(size_t i = 0; i < 4; i++)
@@ -581,8 +575,7 @@ namespace open_ptrack
 
       Eigen::Vector3d top(_x, _y, z_ + (height_/2));
       Eigen::Vector3d bottom(_x, _y, z_ - (height_/2));
-      top = detection_source_->transformToCam(top);
-      bottom = detection_source_->transformToCam(bottom);
+
       if (not vertical)
       {
         track_msg.box_2D.height = int(std::abs((top - bottom)(1)));
@@ -598,6 +591,48 @@ namespace open_ptrack
         track_msg.box_2D.y = int(top(1)) - track_msg.box_2D.width / 4;
       }
     }
+
+
+    void
+    Track::toMsg(cob_perception_msgs::Detection& det_msg, bool vertical)
+    {
+	  std::stringstream s;
+	  s << "openPTrack_" << id_;
+
+      det_msg.label = s.str();
+      det_msg.id = id_;
+      det_msg.detector = "body";
+      det_msg.score = - data_association_score_;   // minus for transforming distance into a sort of confidence
+
+      double _x, _y;
+      filter_->getState(_x, _y);
+
+      det_msg.pose.pose.position.x = _x;
+      det_msg.pose.pose.position.y = _y;
+      det_msg.pose.pose.position.z = z_;
+      det_msg.pose.pose.orientation.x = 0;
+      det_msg.pose.pose.orientation.y = 0;
+      det_msg.pose.pose.orientation.z = 0;
+      det_msg.pose.pose.orientation.w = 1;
+
+
+      // det_msg.mask.roi ...
+//      if (not vertical)
+//      {
+//        track_msg.box_2D.height = int(std::abs((top - bottom)(1)));
+//        track_msg.box_2D.width = track_msg.box_2D.height / 2;
+//        track_msg.box_2D.x = int(top(0)) - track_msg.box_2D.height / 4;
+//        track_msg.box_2D.y = int(top(1));
+//      }
+//      else
+//      {
+//        track_msg.box_2D.width = int(std::abs((top - bottom)(0)));
+//        track_msg.box_2D.height = track_msg.box_2D.width / 2;
+//        track_msg.box_2D.x = int(top(0)) - track_msg.box_2D.width;
+//        track_msg.box_2D.y = int(top(1)) - track_msg.box_2D.width / 4;
+//      }
+    }
+
 
     open_ptrack::detection::DetectionSource*
     Track::getDetectionSource()

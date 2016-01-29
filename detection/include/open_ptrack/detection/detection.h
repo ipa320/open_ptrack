@@ -61,14 +61,14 @@ namespace open_ptrack
         /** \brief Detection source which produced the detection */
         open_ptrack::detection::DetectionSource* source_;
 
-        /** \brief Detection centroid in world reference frame */
-        Eigen::Vector3d world_centroid_;
+        /** \brief Detection centroid in camera reference frame */
+        Eigen::Vector3d centroid_;
 
-        /** \brief Detection bottom point in world reference frame */
-        Eigen::Vector3d world_bottom_;
+        /** \brief Detection bottom point in camera reference frame */
+        Eigen::Vector3d bottom_;
 
-        /** \brief Detection top point in world reference frame */
-        Eigen::Vector3d world_top_;
+        /** \brief Detection top point in camera reference frame */
+        Eigen::Vector3d top_;
 
         /**
          * \brief Converts a BoundingBox2D message into a cv::Rect.
@@ -111,7 +111,7 @@ namespace open_ptrack
          * \return the detection centroid in world reference frame.
          */
         Eigen::Vector3d&
-        getWorldCentroid();
+        getCentroid();
 
         /**
          * \brief Returns the detection top point in world reference frame.
@@ -119,7 +119,7 @@ namespace open_ptrack
          * \return the detection top point in world reference frame.
          */
         Eigen::Vector3d&
-        getWorldTop();
+        getTop();
 
         /**
          * \brief Returns the detection bottom point in world reference frame.
@@ -127,7 +127,7 @@ namespace open_ptrack
          * \return the detection bottom point in world reference frame.
          */
         Eigen::Vector3d&
-        getWorldBottom();
+        getBottom();
 
         /**
          * \brief Returns the detection height from the ground plane.
@@ -191,7 +191,7 @@ namespace open_ptrack
          * \param[in] centroid The detection centroid in world reference frame.
          */
         void
-        setWorldCentroid(const Eigen::Vector3d& centroid);
+        setCentroid(const Eigen::Vector3d& centroid);
     };
   } /* namespace detection */
 } /* namespace open_ptrack */

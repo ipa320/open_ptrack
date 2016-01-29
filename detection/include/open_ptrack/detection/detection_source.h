@@ -56,12 +56,6 @@ namespace open_ptrack
         /** \brief last image associated to the detection source */
         cv::Mat image_;
 
-        /** \brief transform between camera and world reference frames */
-        tf::StampedTransform transform_;
-
-        /** \brief transform between world and camera reference frames */
-        tf::StampedTransform inverse_transform_;
-
         /** \brief intrinsic parameters of the camera associated to the detection source */
         Eigen::Matrix3d intrinsic_matrix_;
 
@@ -76,8 +70,7 @@ namespace open_ptrack
 
       public:
         /** \brief Constructor. */
-        DetectionSource(cv::Mat image, tf::StampedTransform transform, tf::StampedTransform inverse_transform,
-            Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id);
+        DetectionSource(cv::Mat image, Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id);
 
         /** \brief Destructor. */
         virtual ~DetectionSource();
@@ -93,8 +86,7 @@ namespace open_ptrack
          * \param[in] frame_id Frame id.
          */
         void
-        update(cv::Mat image, tf::StampedTransform transform, tf::StampedTransform inverse_transform,
-            Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id);
+        update(cv::Mat image, Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id);
 
         /**
          * \brief Apply camera to world transformation to the input vector.
@@ -102,54 +94,6 @@ namespace open_ptrack
          * \param[in] v 3D vector.
          *
          * \return Transformed vector.
-         */
-        Eigen::Vector3d
-        transform(const Eigen::Vector3d& v);
-
-        /**
-         * \brief Apply camera to world transformation to the input vector.
-         *
-         * \param[in] v 3D vector.
-         *
-         * \return Transformed vector.
-         */
-        Eigen::Vector3d
-        transform(const geometry_msgs::Vector3& v);
-
-        /**
-         * \brief Apply world to camera transformation to the input vector.
-         *
-         * \param[in] v 3D vector.
-         *
-         * \return Transformed vector.
-         */
-        Eigen::Vector3d
-        inverseTransform(const Eigen::Vector3d& v);
-
-        /**
-         * \brief Apply world to camera transformation to the input vector.
-         *
-         * \param[in] v 3D vector.
-         *
-         * \return Transformed vector.
-         */
-        Eigen::Vector3d
-        inverseTransform(const geometry_msgs::Vector3& v);
-
-        /**
-         * \brief Project 3D point in world frame to pixel position in image associated to the detection source.
-         *
-         * \param[in] v 3D point in world frame.
-         *
-         * \return image point in homogeneous coordinates [x y 1].
-         */
-        Eigen::Vector3d
-        transformToCam(const Eigen::Vector3d& v);
-
-        /**
-         * \brief Get last image associated to the detection source.
-         *
-         * \return the image as OpenCV matrix.
          */
         cv::Mat&
         getImage();
