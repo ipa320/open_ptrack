@@ -501,7 +501,7 @@ open_ptrack::detection::GroundplaneEstimation<PointT>::compute ()
 	  pcl::PassThrough<pcl::PointXYZ> pass;
 	  pass.setInputCloud (cloud_filtered);
 	  pass.setFilterFieldName ("y");
-	  pass.setFilterLimits (-(-1.18+0.15), -(-1.18-0.15));
+	  pass.setFilterLimits (-(-cam_height_+0.15), -(-cam_height_-0.15));
 	  pass.filter (*cloud_pass);
 
 	  seg.setInputCloud(cloud_pass);
@@ -641,6 +641,13 @@ open_ptrack::detection::GroundplaneEstimation<PointT>::refineGround (int num_ite
   }
 
   return updated;
+}
+
+
+template <typename PointT> void
+open_ptrack::detection::GroundplaneEstimation<PointT>::setCameraHeight(double cam_height)
+{
+	cam_height_ = cam_height;
 }
 
 template <typename PointT> void

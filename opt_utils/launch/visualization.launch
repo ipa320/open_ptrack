@@ -1,21 +1,13 @@
 <launch>
 
-   <arg name="camera" default="sensorring_cam3d" />
-  
-  <!-- display the rois -->
-  <!--node pkg="opt_utils" type="roi_viewer" name="PeopleDetectionViewer" >
-    <param name="mode" type="string" value="roi_display"/> 
-    <param name="label" type="int" value="1" />
-    <param name="show_confidence" type="bool" value="true" />
-    <remap from ="input_image" to="/$(arg camera)/rgb/image_raw"/>
-	<remap from ="input_detections" to="/ground_based_people_detector/detections"/>  
-  </node-->
+   <arg name="vertical" default="false" />
 
    <!-- display the rois -->
    <node pkg="opt_utils" type="roi_viewer" name="HaarDispAdaViewer" >
      <param name="mode" type="string" value="roi_display"/> 
      <param name="label" type="int" value="1" />
      <param name="show_confidence" type="bool" value="true" />
+     <param name="vertical" value="$(arg vertical)" />
 	 <remap from ="input_image" to="HaarDispAdaColorImage"/>
 	 <remap from ="input_detections" to="/detector/detections"/>  
    </node>

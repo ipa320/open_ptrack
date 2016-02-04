@@ -88,6 +88,10 @@ bool intrinsics_already_set = false;
 Eigen::Matrix3f intrinsics_matrix;
 bool update_background = false;
 
+// true if camera orientation rotated (90°)
+bool vertical;
+// distance between camera and floor
+double cam_height;
 // Min confidence for people detection:
 double min_confidence;
 // People detection object
@@ -114,6 +118,8 @@ PointCloudT::Ptr background_cloud;
 bool background_subtraction;
 // Threshold on the ratio of valid points needed for ground estimation
 double valid_points_threshold;
+
+boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("PCL Detections"));
 
 void
 cloud_cb (const PointCloudT::ConstPtr& callback_cloud)
@@ -252,6 +258,8 @@ main (int argc, char** argv)
   nh.param("ground_estimation_mode", ground_estimation_mode, 0);
   std::string svm_filename;
 
+  nh.param("vertical", vertical, false);
+  nh.param("cam_height", cam_height, 1.18);
   nh.param("classifier_file", svm_filename, std::string("./"));
   nh.param("use_rgb", use_rgb, true);
   nh.param("minimum_luminance", minimum_luminance, 20);
@@ -326,6 +334,12 @@ main (int argc, char** argv)
     rate.sleep();
   }
 
+  pcl::visualization::PointCloudColorHandlerRGBField<PointT> rgb(cloud);
+
+  viewer->addPointCloud<PointT> (cloud, rgb, "input_cloud");
+  viewer->setCameraPosition(0,0,-3,0,-0.64,0,0);
+  viewer->addCoordinateSystem(0.5);
+
   // Create classifier for people detection:
   open_ptrack::detection::PersonClassifier<pcl::RGB> person_classifier;
   person_classifier.loadSVMFromFile(svm_filename);   // load trained SVM
@@ -398,6 +412,7 @@ main (int argc, char** argv)
   // Ground estimation:
   std::cout << "Ground plane initialization starting..." << std::endl;
   ground_estimator.setInputCloud(cloud);
+  ground_estimator.setCameraHeight(cam_height);
   Eigen::VectorXf ground_coeffs = ground_estimator.computeMulticamera(ground_from_extrinsic_calibration, read_ground_from_file,
       pointcloud_topic, sampling_factor, voxel_size);
 
@@ -407,6 +422,18 @@ main (int argc, char** argv)
     if (new_cloud_available_flag)
     {
 	  new_cloud_available_flag = false;
+
+	  // if vertical rotate image
+	    if (vertical)
+	    {
+	  	  // transform with pcl::PointCloud
+	  	  PointCloudT::Ptr cloud_transformed (new PointCloudT);
+	  	  Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+	  	  transform_2.rotate (Eigen::AngleAxisf (M_PI/2, Eigen::Vector3f::UnitZ()));
+	  	  pcl::transformPointCloud (*cloud, *cloud_transformed, transform_2);
+
+	  	  *cloud = *cloud_transformed;
+	    }
 
       // Convert PCL cloud header to ROS header:
       std_msgs::Header cloud_header = pcl_conversions::fromPCL(cloud->header);
@@ -448,6 +475,11 @@ main (int argc, char** argv)
       detection_array_msg->confidence_type = std::string("hog+svm");
       detection_array_msg->image_type = std::string("rgb");
 
+      viewer->removeAllShapes();
+      viewer->updatePointCloud<PointT> (cloud, rgb, "input_cloud");
+
+      int k = 0;
+
       // Add all valid detections:
       for(std::vector<pcl::people::PersonCluster<PointT> >::iterator it = clusters.begin(); it != clusters.end(); ++it)
       {
@@ -462,14 +494,32 @@ main (int argc, char** argv)
           float head_centroid_compensation = 0.05;
 
           // theoretical person centroid:
-          Eigen::Vector3f centroid3d = anti_transform * it->getTCenter();
+          Eigen::Vector3f centroid3d;
+          if  (vertical) // if vertical, transform the coordinates back to non-rotated orientation
+        	  centroid3d = anti_transform * Eigen::Vector3f(it->getTCenter().y(), -it->getTCenter().x(), it->getTCenter().z());
+          else
+        	  centroid3d = anti_transform * Eigen::Vector3f(it->getTCenter().x(), it->getTCenter().y(), it->getTCenter().z());
           Eigen::Vector3f centroid2d = converter.world2cam(centroid3d, intrinsics_matrix);
+
+
           // theoretical person top point:
-          Eigen::Vector3f top3d = anti_transform * it->getTTop();
+          Eigen::Vector3f top3d;
+          if  (vertical)
+        	  top3d = anti_transform * Eigen::Vector3f(it->getTop().y(), -it->getTTop().x(), it->getTTop().z());
+          else
+        	  top3d = anti_transform * Eigen::Vector3f(it->getTTop().x(), it->getTTop().y(), it->getTTop().z());
           Eigen::Vector3f top2d = converter.world2cam(top3d, intrinsics_matrix);
+
+
           // theoretical person bottom point:
-          Eigen::Vector3f bottom3d = anti_transform * it->getTBottom();
+          Eigen::Vector3f bottom3d;
+          if  (vertical)
+        	  bottom3d = anti_transform * Eigen::Vector3f(it->getTBottom().y(), -it->getTBottom().x(), it->getTBottom().z());
+          else
+        	  bottom3d = anti_transform * Eigen::Vector3f(it->getTBottom().x(), it->getTBottom().y(), it->getTBottom().z());
           Eigen::Vector3f bottom2d = converter.world2cam(bottom3d, intrinsics_matrix);
+
+
           float enlarge_factor = 1.1;
           float pixel_xc = centroid2d(0);
           float pixel_yc = centroid2d(1);
@@ -481,10 +531,49 @@ main (int argc, char** argv)
           detection_msg.box_2D.height = int(pixel_height);
           detection_msg.height = it->getHeight();
           detection_msg.confidence = it->getPersonConfidence();
+          if (vertical)
+        	  detection_msg.confidence += 1.5;
           detection_msg.distance = it->getDistance();
           converter.Vector3fToVector3((1+head_centroid_compensation/centroid3d.norm())*centroid3d, detection_msg.centroid);
           converter.Vector3fToVector3((1+head_centroid_compensation/top3d.norm())*top3d, detection_msg.top);
           converter.Vector3fToVector3((1+head_centroid_compensation/bottom3d.norm())*bottom3d, detection_msg.bottom);
+
+            pcl::ModelCoefficients coeffs;
+
+                  // translation
+            coeffs.values.push_back ((float)it->getTCenter().x());
+            coeffs.values.push_back ((float)it->getTCenter().y());
+            coeffs.values.push_back ((float)it->getTCenter().z());
+
+            // rotation
+            coeffs.values.push_back (0.0);
+            coeffs.values.push_back (0.0);
+            coeffs.values.push_back (0.0);
+            coeffs.values.push_back (1.0);
+
+            // size
+            coeffs.values.push_back (0.5);
+            coeffs.values.push_back (detection_msg.height);
+            coeffs.values.push_back (0.5);
+
+
+            std::stringstream bbox_name;
+            k++;
+            bbox_name << "bbox_person_" << k;
+            viewer->removeShape (bbox_name.str());
+            viewer->addCube (coeffs, bbox_name.str());
+
+            if (detection_msg.confidence > min_confidence)
+            {
+          	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, bbox_name.str());
+            	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, 2, bbox_name.str());
+            }
+            else
+            {
+          	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, bbox_name.str());
+            	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, 2, bbox_name.str());
+            }
+
 
           // Add message:
           detection_array_msg->detections.push_back(detection_msg);
@@ -496,6 +585,8 @@ main (int argc, char** argv)
     // Execute callbacks:
     ros::spinOnce();
     rate.sleep();
+
+    viewer->spinOnce();
   }
 
   // Delete background file from disk:

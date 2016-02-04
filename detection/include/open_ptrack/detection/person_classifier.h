@@ -121,32 +121,6 @@ namespace open_ptrack
               int width, int height);
 
       /**
-       * \brief Copies an image and makes a black border around it, where the source image is not present.
-       * 
-       * \param[in] input_image A pointer to a pointcloud containing RGB information.
-       * \param[out] output_image A pointer to the output pointcloud.
-       * \param[in] xmin x coordinate of the top-left point of the bbox to copy from the input image.
-       * \param[in] ymin y coordinate of the top-left point of the bbox to copy from the input image.
-       * \param[in] width Output width.
-       * \param[in] height Output height.
-       */
-      void
-      copyMakeBorder (PointCloudPtr& input_image, PointCloudPtr& output_image,
-          int xmin, int ymin, int width, int height);
-
-      /**
-       * \brief Classify the given portion of image.
-       * 
-       * \param[in] height The height of the image patch to classify, in pixels.
-       * \param[in] xc The x-coordinate of the center of the image patch to classify, in pixels.
-       * \param[in] yc The y-coordinate of the center of the image patch to classify, in pixels.
-       * \param[in] image The whole image (pointer to a point cloud containing RGB information) containing the object to classify.
-       * \return The classification score given by the SVM.
-       */
-      double
-      evaluate (float height, float xc, float yc, PointCloudPtr& image);
-
-      /**
        * \brief Compute person confidence for a given PersonCluster.
        * \param[in] image The input image (pointer to a point cloud containing RGB information).
        * \param[in] bottom Theoretical bottom point of the cluster projected to the image.
@@ -156,8 +130,8 @@ namespace open_ptrack
        * \return The person confidence.
        */
       double
-      evaluate (PointCloudPtr& image, Eigen::Vector3f& bottom, Eigen::Vector3f& top, Eigen::Vector3f& centroid,
-         bool vertical);
+      evaluate (PointCloudPtr& image, Eigen::Vector3f& bottom, Eigen::Vector3f& top, Eigen::Vector3f& centroid);
+
     };
   } /* namespace open_ptrack */
 } /* namespace detection */

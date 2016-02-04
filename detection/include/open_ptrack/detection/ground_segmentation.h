@@ -177,6 +177,8 @@ namespace open_ptrack
         bool
         refineGround (int num_iter, float voxel_size, float inliers_threshold, Eigen::VectorXf& ground_coeffs_calib);
 
+        void setCameraHeight(double cam_height);
+
       private:
 
         /**
@@ -215,6 +217,8 @@ namespace open_ptrack
 
         /** \brief pointer to the input cloud */
         PointCloudPtr cloud_;
+
+        double cam_height_;
 
         /** \brief structure used to pass arguments to the callback function */
         struct callback_args{

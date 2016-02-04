@@ -565,8 +565,16 @@ namespace open_ptrack
       filter_->getState(_x, _y);
 
       track_msg.id = id_;
-      track_msg.x = _x;
-      track_msg.y = _y;
+      if (not vertical)
+      {
+    	  track_msg.x = _x;
+      	  track_msg.y = _y;
+      }
+      else
+      {
+    	  track_msg.x = _y;
+    	  track_msg.y = -_x;
+      }
       track_msg.height = height_;
       track_msg.distance = distance_;
       track_msg.age = age_;
@@ -575,7 +583,7 @@ namespace open_ptrack
 
       Eigen::Vector3d top(_x, _y, z_ + (height_/2));
       Eigen::Vector3d bottom(_x, _y, z_ - (height_/2));
-
+/*
       if (not vertical)
       {
         track_msg.box_2D.height = int(std::abs((top - bottom)(1)));
@@ -585,11 +593,11 @@ namespace open_ptrack
       }
       else
       {
-        track_msg.box_2D.width = int(std::abs((top - bottom)(0)));
+*/        track_msg.box_2D.width = int(std::abs((top - bottom)(0)));
         track_msg.box_2D.height = track_msg.box_2D.width / 2;
         track_msg.box_2D.x = int(top(0)) - track_msg.box_2D.width;
         track_msg.box_2D.y = int(top(1)) - track_msg.box_2D.width / 4;
-      }
+//      }
     }
 
 
@@ -602,19 +610,30 @@ namespace open_ptrack
       det_msg.label = s.str();
       det_msg.id = id_;
       det_msg.detector = "body";
-      det_msg.score = - data_association_score_;   // minus for transforming distance into a sort of confidence
+     // det_msg.score = - data_association_score_;   // minus for transforming distance into a sort of confidence
 
       double _x, _y;
       filter_->getState(_x, _y);
 
-      det_msg.pose.pose.position.x = _x;
-      det_msg.pose.pose.position.y = _y;
-      det_msg.pose.pose.position.z = z_;
+      det_msg.pose.header = det_msg.header;
+
+      if (vertical)
+      {
+    	  det_msg.pose.pose.position.x = _y;
+    	  det_msg.pose.pose.position.y = -_x;
+    	  det_msg.pose.pose.position.z = z_;
+      }
+      else
+      {
+    	  det_msg.pose.pose.position.x = _x;
+    	  det_msg.pose.pose.position.y = _y;
+    	  det_msg.pose.pose.position.z = z_;
+      }
+
       det_msg.pose.pose.orientation.x = 0;
       det_msg.pose.pose.orientation.y = 0;
       det_msg.pose.pose.orientation.z = 0;
       det_msg.pose.pose.orientation.w = 1;
-
 
       // det_msg.mask.roi ...
 //      if (not vertical)

@@ -55,7 +55,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
 
-#include <pcl/point_cloud.h>
+#include <pcl/common/transforms.h>
+#include <pcl_ros/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -123,6 +124,9 @@ class HaarDispAdaNode
     int num_TP_class0;
     int num_FP_class0;
 
+    //
+    bool vertical;
+
     // Flag stating if classifiers based on disparity image should be used or not:
     bool use_disparity;
 
@@ -150,6 +154,9 @@ class HaarDispAdaNode
       num_FP_class1 = 0;
       num_TP_class0 = 0;
       num_FP_class0 = 0;
+
+      nh.param("vertical", vertical, false);
+      HDAC_.setOrientation(vertical);
 
       string nn = ros::this_node::getName();
       int qs;
@@ -247,6 +254,7 @@ class HaarDispAdaNode
       output_msg->confidence_type = std::string("haar+ada");
       output_msg->image_type = std::string("disparity");
 
+
       // Add all valid detections:
       int k = 0;
       for(unsigned int i = 0; i < input_msg->detections.size(); i++)
@@ -264,11 +272,8 @@ class HaarDispAdaNode
 
 
     void
-	convertPointCloud2Depth(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg, cv::Mat& dmatrix)
+	convertPointCloud2Depth(pcl::PointCloud<pcl::PointXYZRGB>& depth_cloud, cv::Mat& dmatrix)
     {
-        pcl::PointCloud <pcl::PointXYZRGB> depth_cloud;
-        pcl::fromROSMsg(*cloud_msg, depth_cloud);
-
         float f = 575.8157348632812; 	// focal length
         float T = 0.075;	// baseline distance
 
@@ -305,10 +310,48 @@ class HaarDispAdaNode
       int numSamples;
       double temp=0.0;
 
+      pcl::PointCloud <pcl::PointXYZRGB> depth_cloud;
+      pcl::fromROSMsg(*cloud_msg, depth_cloud);
 
-     cv::Mat dmatrix;
-     convertPointCloud2Depth(cloud_msg, dmatrix);
+	  cv::Mat dmatrix;
+	  convertPointCloud2Depth(depth_cloud, dmatrix);
 
+      sensor_msgs::Image::Ptr color_image_msg;
+      cv::Mat color_image;
+
+      cv_bridge::CvImageConstPtr color_image_ptr;
+      color_image_ptr = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::BGR8);
+      color_image = color_image_ptr->image;
+
+      // if vertical rotate Image and Disparity
+	  if (vertical)
+	  {
+		 cv::Mat color_image_turned;
+		 color_image_turned.create(color_image.cols, color_image.rows, color_image.type());
+
+		 for (int v = 0; v < color_image_turned.rows; v++)
+			 for (int u = 0; u < color_image_turned.cols; u++)
+				 color_image_turned.at<cv::Vec3b>(v,u) = color_image.at<cv::Vec3b>(color_image.rows-1-u,v);
+		// color_image.create(color_image_turned.rows, color_image_turned.cols, color_image_turned.type());
+
+		 color_image = color_image_turned;
+
+		 cv_bridge::CvImage cv_ptr;
+		 cv_ptr.image = color_image_turned;
+		 cv_ptr.encoding = sensor_msgs::image_encodings::BGR8;
+		 color_image_msg = cv_ptr.toImageMsg();
+		 color_image_msg->header = image_msg->header;
+
+
+		 cv::Mat dmatrix_turned;
+		 dmatrix_turned.create(dmatrix.cols, dmatrix.rows, dmatrix.type());
+
+		 for (int v = 0; v < dmatrix_turned.rows; v++)
+			 for (int u = 0; u < dmatrix_turned.cols; u++)
+				 dmatrix_turned.at<float>(v,u) = dmatrix.at<float>(dmatrix.rows-1-u,v);
+
+		 dmatrix = dmatrix_turned;
+	  }
 
       if(!node_.getParam("UseMissingDataMask",HDAC_.useMissingDataMask_)){
         HDAC_.useMissingDataMask_ = false;
@@ -325,8 +368,19 @@ class HaarDispAdaNode
       }
 
       if(kinect_disparity_fix){
-        int nrows = 434;
-        int ncols = 579;
+    	  int nrows;
+    	  int ncols;
+
+    	if (vertical)
+    	{
+            nrows = 434;
+            ncols = 579;
+    	}
+    	else
+    	{
+            ncols = 434;
+            nrows = 579;
+    	}
         int row_offset = (dmatrix.rows - nrows)/2;
         int col_offset = (dmatrix.cols - ncols)/2;
         cv::Mat Scaled_Disparity(nrows,ncols,CV_32FC1);
@@ -365,19 +419,29 @@ class HaarDispAdaNode
         Eigen::Vector3f top3d(detection_msg->detections[i].top.x, detection_msg->detections[i].top.y, detection_msg->detections[i].top.z);
         Eigen::Vector3f top2d = converter.world2cam(top3d, intrinsic_matrix);
 
+        if (vertical) // rotate to the right pixelcoordinates
+        {
+        	int helper = centroid2d(0);
+        	centroid2d(0) = color_image.cols-1-centroid2d(1);
+        	centroid2d(1) = helper;
+
+        	helper = top2d(0);
+        	top2d(0) = color_image.cols-1-top2d(1);
+        	top2d(1) = helper;
+        }
+
         // Define Rect and make sure it is not out of the image:
         int h = centroid2d(1) - top2d(1);
         int w = h * 2 / 3.0;
         int x = std::max(0, int(centroid2d(0) - w / 2.0));
         int y = std::max(0, int(top2d(1)));
-        h = std::min(int(cloud_msg->height - y), int(h));
-        w = std::min(int(cloud_msg->width - x), int(w));
+        h = std::min(int(dmatrix.rows - y), int(h));
+        w = std::min(int(dmatrix.cols - x), int(w));
 
         Rect R(x,y,w,h);
         R_in.push_back(R);
         L_in.push_back(1);
       }
-
       // do the work of the node
       switch(get_mode())
 	  {
@@ -392,13 +456,19 @@ class HaarDispAdaNode
           output_rois_.rois.clear();
           output_rois_.header.stamp = image_msg->header.stamp;
           output_rois_.header.frame_id = image_msg->header.frame_id;
-//          ROS_INFO("HaarDispAda found %d objects",(int)L_out.size());
+//		ROS_INFO("HaarDispAda found %d objects",(int)L_out.size());
+
           for(unsigned int i=0; i<R_out.size();i++){
             RoiRect R;
             R.x      = R_out[i].x;
             R.y      = R_out[i].y;
             R.width  = R_out[i].width;
             R.height = R_out[i].height;
+
+            cv::Point ptUpperLeft = cv::Point(R.x,R.y);
+            cv::Point ptLowerRight = cv::Point(R.x+R.width,R.y+R.height);
+            rectangle(color_image,ptUpperLeft,ptLowerRight,cv::Scalar(255,0,0));
+
             if (use_disparity)
               R.label  = L_out[i];
             else
@@ -406,8 +476,9 @@ class HaarDispAdaNode
             R.confidence = C_out[i];
             output_rois_.rois.push_back(R);
           }
+
           pub_rois_.publish(output_rois_);
-          pub_Color_Image_.publish(image_msg);
+          (vertical) ? pub_Color_Image_.publish(color_image_msg) : pub_Color_Image_.publish(image_msg);
           pub_detections_.publish(output_detection_msg_);
           break;
 
@@ -497,6 +568,10 @@ class HaarDispAdaNode
           node_.setParam(param_name, std::string("detect"));
           break;
       }// end switch
+
+      cv::imshow("Haar Detections", color_image);
+      cv::waitKey(10);
+
     }
 
     void

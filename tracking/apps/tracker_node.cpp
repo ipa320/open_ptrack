@@ -371,10 +371,17 @@ detection_cb(const opt_msgs::DetectionArray::ConstPtr& msg)
         // Publish tracking message:
         results_pub.publish(tracking_results_msg);
 
-        // filll and publish cob_perception_msgs for later fusion
+        // fill and publish cob_perception_msgs for later fusion
         cob_perception_msgs::DetectionArray::Ptr detArray (new cob_perception_msgs::DetectionArray);
         detArray->header = msg->header;
         tracker->toMsg(detArray);
+
+        for (int i = 0; i < detArray->detections.size(); i++)
+        {
+        	detArray->detections[i].score = msg->detections[i].confidence * 0.1;
+        	//std::cout << detArray->detections[i].score << std::endl;
+        }
+
         det_pub.publish(detArray);
       }
 
@@ -448,7 +455,7 @@ detection_cb(const opt_msgs::DetectionArray::ConstPtr& msg)
           color_map.insert(std::pair<std::string, int> (frame_id, color_index));
 
           // Plot legend with camera names and colors:
-          plotCameraLegend (color_map);
+         // plotCameraLegend (color_map);
         }
         for (unsigned int i = 0; i < detections_vector.size(); i++)
         {
