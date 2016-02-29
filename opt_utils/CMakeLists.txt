@@ -1,7 +1,21 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(opt_utils)
+
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
-find_package(catkin REQUIRED COMPONENTS cmake_modules roscpp rosconsole image_transport cv_bridge opt_msgs)
+
+find_package(
+  catkin REQUIRED COMPONENTS 
+  cmake_modules
+  cv_bridge
+  image_transport
+  message_filters
+  opt_msgs
+  rosconsole  
+  roscpp 
+  sensor_msgs
+  std_msgs
+)
+  
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIB_DIR})

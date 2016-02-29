@@ -2,13 +2,11 @@
 
 	<arg name="camera" default="torso_cam3d_left" />
 	<arg name="vertical" default="true" />
-	<arg name="cam_height" default="0.64" />
 		
 	<!-- People detection -->
 	<include file="$(find detection)/launch/detector_depth.launch">
 		<arg name="camera" value="$(arg camera)" />
 		<arg name="vertical" value="$(arg vertical)" />
-		<arg name="cam_height" value="$(arg cam_height)" />
 	</include>
 
 	<!-- People tracking -->

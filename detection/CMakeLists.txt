@@ -1,19 +1,27 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(detection)
+
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
+
 find_package(
-  catkin REQUIRED COMPONENTS 
-  cmake_modules 
+catkin REQUIRED COMPONENTS 
+  cmake_modules
+  cv_bridge
+  dynamic_reconfigure 
+  image_transport 
+  message_filters
+  nodelet 
+  opt_msgs
+  opt_utils
+  pcl_conversions   
+  pcl_ros
+  rosconsole 
   roscpp 
   rospy 
-  pcl_ros 
-  pcl_conversions 
-  nodelet 
-  rosconsole 
-  image_transport 
-  opt_utils 
-  opt_msgs 
-  dynamic_reconfigure)
+  sensor_msgs
+  std_msgs 
+  visualization_msgs 
+)
 
 find_package(VTK REQUIRED)
 if(VTK_FOUND)
@@ -23,6 +31,7 @@ if(VTK_FOUND)
 	include (${VTK_USE_FILE})
 endif() 
 
+find_package(Boost REQUIRED)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIB_DIR})

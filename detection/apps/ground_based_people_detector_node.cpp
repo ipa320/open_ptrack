@@ -119,7 +119,6 @@ bool background_subtraction;
 // Threshold on the ratio of valid points needed for ground estimation
 double valid_points_threshold;
 
-boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("PCL Detections"));
 
 void
 cloud_cb (const PointCloudT::ConstPtr& callback_cloud)
@@ -334,12 +333,16 @@ main (int argc, char** argv)
     rate.sleep();
   }
 
-  pcl::visualization::PointCloudColorHandlerRGBField<PointT> rgb(cloud);
+/*  // Uncomment all of these "3D Viewer"-code to show the pcl_detector detections
+	// 3D viewer initialization
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("PCL Detections"));
+	pcl::visualization::PointCloudColorHandlerRGBField<PointT> rgb(cloud);
 
-  viewer->addPointCloud<PointT> (cloud, rgb, "input_cloud");
-  viewer->setCameraPosition(0,0,-3,0,-0.64,0,0);
-  viewer->addCoordinateSystem(0.5);
-
+	viewer->addPointCloud<PointT> (cloud, rgb, "input_cloud");
+	viewer->setCameraPosition(0,0,-3,0,-0.64,0,0);
+	viewer->addCoordinateSystem(0.5);
+ */
+  
   // Create classifier for people detection:
   open_ptrack::detection::PersonClassifier<pcl::RGB> person_classifier;
   person_classifier.loadSVMFromFile(svm_filename);   // load trained SVM
@@ -474,10 +477,13 @@ main (int argc, char** argv)
           detection_array_msg->intrinsic_matrix.push_back(intrinsics_matrix(i, j));
       detection_array_msg->confidence_type = std::string("hog+svm");
       detection_array_msg->image_type = std::string("rgb");
-
-      viewer->removeAllShapes();
-      viewer->updatePointCloud<PointT> (cloud, rgb, "input_cloud");
-
+	  
+	  
+/*	  // update Pointcloud in 3D Viewer
+	  viewer->removeAllShapes();
+	  viewer->updatePointCloud<PointT> (cloud, rgb, "input_cloud");
+*/
+	  
       int k = 0;
 
       // Add all valid detections:
@@ -538,42 +544,43 @@ main (int argc, char** argv)
           converter.Vector3fToVector3((1+head_centroid_compensation/top3d.norm())*top3d, detection_msg.top);
           converter.Vector3fToVector3((1+head_centroid_compensation/bottom3d.norm())*bottom3d, detection_msg.bottom);
 
-            pcl::ModelCoefficients coeffs;
+/*			
+		  // Add detections to 3D Viewer
+		  pcl::ModelCoefficients coeffs;
 
-                  // translation
-            coeffs.values.push_back ((float)it->getTCenter().x());
-            coeffs.values.push_back ((float)it->getTCenter().y());
-            coeffs.values.push_back ((float)it->getTCenter().z());
+		  // translation
+		  coeffs.values.push_back ((float)it->getTCenter().x());
+		  coeffs.values.push_back ((float)it->getTCenter().y());
+		  coeffs.values.push_back ((float)it->getTCenter().z());
 
-            // rotation
-            coeffs.values.push_back (0.0);
-            coeffs.values.push_back (0.0);
-            coeffs.values.push_back (0.0);
-            coeffs.values.push_back (1.0);
+		  // rotation
+		  coeffs.values.push_back (0.0);
+	      coeffs.values.push_back (0.0);
+		  coeffs.values.push_back (0.0);
+		  coeffs.values.push_back (1.0);
 
-            // size
-            coeffs.values.push_back (0.5);
-            coeffs.values.push_back (detection_msg.height);
-            coeffs.values.push_back (0.5);
+		  // size
+		  coeffs.values.push_back (0.5);
+		  coeffs.values.push_back (detection_msg.height);
+		  coeffs.values.push_back (0.5);
 
+		  std::stringstream bbox_name;
+		  k++;
+		  bbox_name << "bbox_person_" << k;
+		  viewer->removeShape (bbox_name.str());
+		  viewer->addCube (coeffs, bbox_name.str());
 
-            std::stringstream bbox_name;
-            k++;
-            bbox_name << "bbox_person_" << k;
-            viewer->removeShape (bbox_name.str());
-            viewer->addCube (coeffs, bbox_name.str());
-
-            if (detection_msg.confidence > min_confidence)
-            {
-          	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, bbox_name.str());
-            	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, 2, bbox_name.str());
-            }
-            else
-            {
-          	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, bbox_name.str());
-            	  viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, 2, bbox_name.str());
-            }
-
+		  if (detection_msg.confidence > min_confidence)
+		  {
+		    viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, bbox_name.str());
+		    viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, 2, bbox_name.str());
+		  }
+		  else
+		  {
+		    viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, bbox_name.str());
+			viewer->setShapeRenderingProperties (pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, 2, bbox_name.str());
+		  }
+*/
 
           // Add message:
           detection_array_msg->detections.push_back(detection_msg);
@@ -585,8 +592,10 @@ main (int argc, char** argv)
     // Execute callbacks:
     ros::spinOnce();
     rate.sleep();
-
-    viewer->spinOnce();
+    
+/*	Update 3D Viewer
+	viewer->spinOnce();
+*/	
   }
 
   // Delete background file from disk:

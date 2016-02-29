@@ -465,10 +465,15 @@ class HaarDispAdaNode
             R.width  = R_out[i].width;
             R.height = R_out[i].height;
 
-            cv::Point ptUpperLeft = cv::Point(R.x,R.y);
-            cv::Point ptLowerRight = cv::Point(R.x+R.width,R.y+R.height);
-            rectangle(color_image,ptUpperLeft,ptLowerRight,cv::Scalar(255,0,0));
+/*
+			if (C_out[i] > min_confidence)
+            {
+            	cv::Point ptUpperLeft = cv::Point(R.x,R.y);
+            	cv::Point ptLowerRight = cv::Point(R.x+R.width,R.y+R.height);
+            	rectangle(color_image,ptUpperLeft,ptLowerRight,CV_RGB(0, 0, 225), 2);
+            }
 
+*/
             if (use_disparity)
               R.label  = L_out[i];
             else
@@ -568,10 +573,11 @@ class HaarDispAdaNode
           node_.setParam(param_name, std::string("detect"));
           break;
       }// end switch
-
+      
+/*
       cv::imshow("Haar Detections", color_image);
       cv::waitKey(10);
-
+*/
     }
 
     void

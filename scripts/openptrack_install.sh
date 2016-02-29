@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd ~/catkin_ws
+cd ../..
 
 catkin_make --pkg opt_msgs
 catkin_make --force-cmake

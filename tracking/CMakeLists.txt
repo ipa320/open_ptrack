@@ -1,21 +1,27 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(tracking)
+
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
+
 find_package(
   catkin REQUIRED COMPONENTS 
-  cmake_modules 
-  roscpp 
-  rosconsole 
-  image_transport 
-  tf 
-  tf_conversions 
   bayes 
-  pcl_ros 
-  detection 
+  cmake_modules
+  cob_perception_msgs
+  detection  
+  dynamic_reconfigure
+  image_transport
   opt_msgs 
   opt_utils 
-  dynamic_reconfigure
-  cob_perception_msgs)
+  pcl_ros
+  rosconsole
+  roscpp  
+  sensor_msgs
+  std_msgs
+  tf 
+  tf_conversions
+  visualization_msgs 
+)
 
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -35,7 +41,7 @@ include_directories(cfg/cpp)
 catkin_package(
    INCLUDE_DIRS 
    LIBRARIES ${PROJECT_NAME}
-   CATKIN_DEPENDS roscpp bayes opencv2 pcl_ros detection tf tf_conversions opt_msgs opt_utils
+   CATKIN_DEPENDS roscpp bayes pcl_ros detection tf tf_conversions opt_msgs opt_utils
 )
 
 add_library(${PROJECT_NAME} src/munkres.cpp src/kalman_filter.cpp src/track.cpp src/tracker.cpp)
