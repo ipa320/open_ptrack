@@ -1,22 +1,27 @@
 <launch>
-  <!-- Start the Kinect -->
-  <include file="$(find detection)/launch/$(env KINECT_DRIVER).launch"/> 
+
+  <arg name="camera" default="sensorring_cam3d" />
+  <arg name="vertical" default="false" />
+  <arg name="cam_height" default="1.18" />
 
    <!-- Launch ground based people detection node -->
    <node pkg="detection" type="ground_based_people_detector" name="ground_based_people_detector" output="screen" required="true">
     <rosparam command="load" file="$(find detection)/conf/ground_based_people_detector_kinect1.yaml" /> 
     <param name="classifier_file" value="$(find detection)/data/HogSvmPCL.yaml"/>
-    <param name="pointcloud_topic" value="/camera/depth_registered/points"/>
+    <param name="pointcloud_topic" value="/$(arg camera)/depth_registered/points"/>
     <param name="rate" value="60.0"/>  
+    <param name="vertical" value="$(arg vertical)"/>
+    <param name="cam_height" value="$(arg cam_height)" />
   </node>
 
    <!-- Launch HaarDispAda Node-->
    <node name="HaarDispAdaNode" pkg="detection" type="HaarDispAda174" >	
      <rosparam command="load" file="$(find detection)/conf/haar_disp_ada_detector.yaml" /> 
-     <remap from="Color_Image" to="/camera/rgb/image_color"/>	
-     <remap from="Disparity_Image" to="/camera/depth_registered/disparity"/>
+     <remap from="Color_Image" to="/$(arg camera)/rgb/image_raw"/>	
+     <remap from="PointCloud" to="/$(arg camera)/depth_registered/points"/>
      <remap from="input_detections" to="/ground_based_people_detector/detections"/>
      <param name="classifier_file" value="$(find detection)/data/HaarDispAda.xml"/>
+     <param name="vertical" value="$(arg vertical)"/>
    </node>  
 
 </launch>

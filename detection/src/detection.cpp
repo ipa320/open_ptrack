@@ -47,22 +47,21 @@ namespace open_ptrack
     Detection::Detection(opt_msgs::Detection detection, open_ptrack::detection::DetectionSource* source) :
 		    detection_msg_(detection), source_(source)
     {
-      // Transform centroid, top and bottom points from camera frame to world frame:
       Eigen::Vector3d v;
       v(0) = detection.centroid.x;
       v(1) = detection.centroid.y;
       v(2) = detection.centroid.z;
-      world_centroid_ = source->transform(v);
+      centroid_ = v;
 
       v(0) = detection.top.x;
       v(1) = detection.top.y;
       v(2) = detection.top.z;
-      world_top_ = source->transform(v);
+      top_ = v;
 
       v(0) = detection.bottom.x;
       v(1) = detection.bottom.y;
       v(2) = detection.bottom.z;
-      world_bottom_ = source->transform(v);
+      bottom_ = v;
     }
 
     Detection::~Detection()
@@ -77,21 +76,21 @@ namespace open_ptrack
     }
 
     Eigen::Vector3d&
-    Detection::getWorldCentroid()
+    Detection::getCentroid()
     {
-      return world_centroid_;
+      return centroid_;
     }
 
     Eigen::Vector3d&
-    Detection::getWorldTop()
+    Detection::getTop()
     {
-      return world_top_;
+      return top_;
     }
 
     Eigen::Vector3d&
-    Detection::getWorldBottom()
+    Detection::getBottom()
     {
-      return world_bottom_;
+      return bottom_;
     }
 
     double
@@ -137,9 +136,9 @@ namespace open_ptrack
     }
 
     void
-    Detection::setWorldCentroid(const Eigen::Vector3d& centroid)
+    Detection::setCentroid(const Eigen::Vector3d& centroid)
     {
-      world_centroid_ = centroid;
+      centroid_ = centroid;
     }
 
     /************************ protected methods ************************/

@@ -190,6 +190,21 @@ namespace open_ptrack
     }
 
     void
+    Tracker::toMsg(cob_perception_msgs::DetectionArray::Ptr& msg)
+    {
+      for(std::list<open_ptrack::tracking::Track*>::iterator it = tracks_.begin(); it != tracks_.end(); it++)
+      {
+        open_ptrack::tracking::Track* t = *it;
+
+        cob_perception_msgs::Detection det;
+        det.header = msg->header;
+
+        t->toMsg(det, vertical_);
+        msg->detections.push_back(det);
+      }
+    }
+/*
+    void
     Tracker::toMsg(opt_msgs::TrackArray::Ptr& msg, std::string& source_frame_id)
     {
       for(std::list<open_ptrack::tracking::Track*>::iterator it = tracks_.begin(); it != tracks_.end(); it++)
@@ -209,7 +224,7 @@ namespace open_ptrack
         }
       }
     }
-
+*/
     void
     Tracker::getAliveIDs (opt_msgs::IDArray::Ptr& msg)
     {
@@ -257,11 +272,11 @@ namespace open_ptrack
           period_,
           velocity_in_motion_term_  );
 
-      t->init(detection.getWorldCentroid()(0), detection.getWorldCentroid()(1),detection.getWorldCentroid()(2),
+      t->init(detection.getCentroid()(0), detection.getCentroid()(1),detection.getCentroid()(2),
           detection.getHeight(), detection.getDistance(), detection.getSource());
 
       bool first_update = true;
-      t->update(detection.getWorldCentroid()(0), detection.getWorldCentroid()(1), detection.getWorldCentroid()(2),
+      t->update(detection.getCentroid()(0), detection.getCentroid()(1), detection.getCentroid()(2),
           detection.getHeight(), detection.getDistance(), 0.0,
           detection.getConfidence(), min_confidence_, min_confidence_detections_, detection.getSource(), first_update);
 
@@ -299,8 +314,8 @@ namespace open_ptrack
 
           // Compute motion likelihood:
           double motion_likelihood = t->getMahalanobisDistance(
-              dit->getWorldCentroid()(0),
-              dit->getWorldCentroid()(1),
+              dit->getCentroid()(0),
+              dit->getCentroid()(1),
               dit->getSource()->getTime());
 
           // Compute joint likelihood and put it in the distance matrix:
@@ -397,7 +412,7 @@ namespace open_ptrack
             {
               // Update track with the associated detection:
               bool first_update = false;
-              t->update(d.getWorldCentroid()(0), d.getWorldCentroid()(1), d.getWorldCentroid()(2),d.getHeight(),
+              t->update(d.getCentroid()(0), d.getCentroid()(1), d.getCentroid()(2),d.getHeight(),
                   d.getDistance(), distance_matrix_(track, measure),
                   d.getConfidence(), min_confidence_, min_confidence_detections_,
                   d.getSource(), first_update);

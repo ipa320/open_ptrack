@@ -61,6 +61,8 @@
 #include <opt_msgs/DetectionArray.h>
 #include <opt_msgs/TrackArray.h>
 #include <opt_msgs/IDArray.h>
+#include <cob_perception_msgs/Detection.h>
+#include <cob_perception_msgs/DetectionArray.h>
 //#include <open_ptrack/opt_utils/ImageConverter.h>
 
 // Dynamic reconfigure:
@@ -82,7 +84,7 @@ bool output_image_rgb;
 bool output_tracking_results;
 bool output_detection_results;  // Enables/disables the publishing of detection positions to be visualized in RViz
 bool vertical;
-ros::Publisher results_pub;
+ros::Publisher results_pub, det_pub;
 ros::Publisher marker_pub_tmp;
 ros::Publisher marker_pub;
 ros::Publisher pointcloud_pub;
@@ -231,24 +233,24 @@ detection_cb(const opt_msgs::DetectionArray::ConstPtr& msg)
     time_delay = (latest_time - frame_time).toSec();
   }
 
-  tf::StampedTransform transform;
-  tf::StampedTransform inverse_transform;
+ // tf::StampedTransform transform;
+ // tf::StampedTransform inverse_transform;
   //	cv_bridge::CvImage::Ptr cvPtr;
 
   try
   {
     // Read transforms between camera frame and world frame:
-    if (!extrinsic_calibration)
-    {
-      static tf::TransformBroadcaster world_to_camera_tf_publisher;
-//      world_to_camera_tf_publisher.sendTransform(tf::StampedTransform(camera_frame_to_world_transform, ros::Time::now(), world_frame_id, frame_id));
-      world_to_camera_tf_publisher.sendTransform(tf::StampedTransform(world_to_camera_frame_transform, ros::Time::now(), frame_id, world_frame_id));
-    }
-
-    //Calculate direct and inverse transforms between camera and world frame:
-    tf_listener->lookupTransform(world_frame_id, frame_id, ros::Time(0), transform);
-    tf_listener->lookupTransform(frame_id, world_frame_id, ros::Time(0), inverse_transform);
-
+//    if (!extrinsic_calibration)
+//    {
+//      static tf::TransformBroadcaster world_to_camera_tf_publisher;
+////      world_to_camera_tf_publisher.sendTransform(tf::StampedTransform(camera_frame_to_world_transform, ros::Time::now(), world_frame_id, frame_id));
+//      world_to_camera_tf_publisher.sendTransform(tf::StampedTransform(world_to_camera_frame_transform, ros::Time::now(), frame_id, world_frame_id));
+//    }
+//
+//    //Calculate direct and inverse transforms between camera and world frame:
+//    tf_listener->lookupTransform(world_frame_id, frame_id, ros::Time(0), transform);
+//    tf_listener->lookupTransform(frame_id, world_frame_id, ros::Time(0), inverse_transform);
+//
     //		cvPtr = cv_bridge::toCvCopy(msg->image, sensor_msgs::image_encodings::BGR8);
 
     // Read camera intrinsic parameters:
@@ -261,12 +263,11 @@ detection_cb(const opt_msgs::DetectionArray::ConstPtr& msg)
     if(detection_sources_map.find(frame_id) == detection_sources_map.end())
     {
       detection_sources_map[frame_id] = new open_ptrack::detection::DetectionSource(cv::Mat(0, 0, CV_8UC3),
-          transform, inverse_transform, intrinsic_matrix, frame_time, frame_id);
+         intrinsic_matrix, frame_time, frame_id);
     }
     else
     {
-      detection_sources_map[frame_id]->update(cv::Mat(0, 0, CV_8UC3), transform, inverse_transform,
-          intrinsic_matrix, frame_time, frame_id);
+      detection_sources_map[frame_id]->update(cv::Mat(0, 0, CV_8UC3), intrinsic_matrix, frame_time, frame_id);
       double d = detection_sources_map[frame_id]->getDuration().toSec() / period;
       int lostFrames = int(round(d)) - 1;
     }
@@ -336,16 +337,16 @@ detection_cb(const opt_msgs::DetectionArray::ConstPtr& msg)
         // Apply detection refinement:
         for(unsigned int i = 0; i < detections_vector.size(); i++)
         {
-          Eigen::Vector3d old_centroid = detections_vector[i].getWorldCentroid();
+          Eigen::Vector3d old_centroid = detections_vector[i].getCentroid();
 
 //          std::cout << frame_id << std::endl;
 //          std::cout << registration_matrix << std::endl;
 //          std::cout << "old_centroid: " << old_centroid.transpose() << std::endl;
           Eigen::Vector4d old_centroid_homogeneous(old_centroid(0), old_centroid(1), old_centroid(2), 1.0);
           Eigen::Vector4d refined_centroid = registration_matrix * old_centroid_homogeneous;
-          detections_vector[i].setWorldCentroid(Eigen::Vector3d(refined_centroid(0), refined_centroid(1), refined_centroid(2)));
+          detections_vector[i].setCentroid(Eigen::Vector3d(refined_centroid(0), refined_centroid(1), refined_centroid(2)));
 
-          Eigen::Vector3d refined_centroid2 = detections_vector[i].getWorldCentroid();
+          Eigen::Vector3d refined_centroid2 = detections_vector[i].getCentroid();
 //          std::cout << "refined_centroid2: " << refined_centroid2.transpose() << std::endl;
 //          std::cout << "difference: " << (refined_centroid2 - old_centroid).transpose() << std::endl << std::endl;
         }
@@ -362,12 +363,26 @@ detection_cb(const opt_msgs::DetectionArray::ConstPtr& msg)
       // Create a TrackingResult message with the output of the tracking process
       if(output_tracking_results)
       {
+    	// fill and publish tracking message for visualization
         opt_msgs::TrackArray::Ptr tracking_results_msg(new opt_msgs::TrackArray);
         tracking_results_msg->header.stamp = ros::Time::now();//frame_time;
-        tracking_results_msg->header.frame_id = world_frame_id;
+        tracking_results_msg->header.frame_id = msg->header.frame_id;// world_frame_id;
         tracker->toMsg(tracking_results_msg);
         // Publish tracking message:
         results_pub.publish(tracking_results_msg);
+
+        // fill and publish cob_perception_msgs for later fusion
+        cob_perception_msgs::DetectionArray::Ptr detArray (new cob_perception_msgs::DetectionArray);
+        detArray->header = msg->header;
+        tracker->toMsg(detArray);
+
+        for (int i = 0; i < detArray->detections.size(); i++)
+        {
+        	detArray->detections[i].score = msg->detections[i].confidence * 0.1;
+        	//std::cout << detArray->detections[i].score << std::endl;
+        }
+
+        det_pub.publish(detArray);
       }
 
 //      //Show the tracking process' results as an image
@@ -440,12 +455,12 @@ detection_cb(const opt_msgs::DetectionArray::ConstPtr& msg)
           color_map.insert(std::pair<std::string, int> (frame_id, color_index));
 
           // Plot legend with camera names and colors:
-          plotCameraLegend (color_map);
+         // plotCameraLegend (color_map);
         }
         for (unsigned int i = 0; i < detections_vector.size(); i++)
         {
           // Create marker and add it to message:
-          Eigen::Vector3d centroid = detections_vector[i].getWorldCentroid();
+          Eigen::Vector3d centroid = detections_vector[i].getCentroid();
           visualization_msgs::Marker marker = createMarker (i, frame_id, frame_time, centroid, camera_colors[color_index]);
           marker_msg->markers.push_back(marker);
 
@@ -595,6 +610,7 @@ main(int argc, char** argv)
   marker_pub = nh.advertise<visualization_msgs::MarkerArray>("/tracker/markers_array", 1);
   pointcloud_pub = nh.advertise<pcl::PointCloud<pcl::PointXYZRGBA> >("/tracker/history", 1);
   results_pub = nh.advertise<opt_msgs::TrackArray>("/tracker/tracks", 100);
+  det_pub = nh.advertise<cob_perception_msgs::DetectionArray>("/people_detections/body_detections", 100);
   detection_marker_pub = nh.advertise<visualization_msgs::MarkerArray>("/detector/markers_array", 1);
   detection_trajectory_pub = nh.advertise<pcl::PointCloud<pcl::PointXYZRGBA> >("/detector/history", 1);
   alive_ids_pub = nh.advertise<opt_msgs::IDArray>("/tracker/alive_ids", 1);

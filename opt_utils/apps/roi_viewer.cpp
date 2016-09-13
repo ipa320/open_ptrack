@@ -102,6 +102,7 @@ class roiViewerNode
     int label;
     bool show_confidence;
     bool color_image;
+    bool vertical;
 
     // Object of class Conversions:
     open_ptrack::opt_utils::Conversions converter;
@@ -122,6 +123,9 @@ class roiViewerNode
 
       if(mode.compare("roi_display")==0){
         ROS_INFO("MODE: %s",mode.c_str());
+
+
+        node_.param(ros::this_node::getName()+"/vertical",vertical,false);
 
         //Get the image width and height
         node_.param(ros::this_node::getName()+"/label",label,0);
@@ -150,7 +154,7 @@ class roiViewerNode
         ROS_INFO("Unknown mode:%s  Please set to {roi_display} in roiViewer.launch",mode.c_str());
       }
       // Visualization
-      cv::namedWindow("Detections", 0 ); // non-autosized
+      cv::namedWindow("Detections", WINDOW_AUTOSIZE );
       cv::startWindowThread();
 
     }
@@ -162,6 +166,7 @@ class roiViewerNode
       std::string imgName = filename.substr(filename.find_last_of("/")+1);
 
       ROS_INFO("roiViewer Callback called for image: %s", imgName.c_str());
+
 
       //Use CV Bridge to convert images
       cv_bridge::CvImagePtr cv_ptr;
@@ -192,6 +197,17 @@ class roiViewerNode
         Eigen::Vector3f top3d(detection_msg->detections[i].top.x, detection_msg->detections[i].top.y, detection_msg->detections[i].top.z);
         Eigen::Vector3f top2d = converter.world2cam(top3d, intrinsic_matrix);
 
+        if (vertical) // rotate to the right pixelcoordinates
+        {
+           	int helper = centroid2d(0);
+           	centroid2d(0) = cv_ptr->image.cols-1-centroid2d(1);
+           	centroid2d(1) = helper;
+
+           	helper = top2d(0);
+           	top2d(0) = cv_ptr->image.cols-1-top2d(1);
+           	top2d(1) = helper;
+        }
+
         // Define Rect and make sure it is not out of the image:
         int h = centroid2d(1) - top2d(1);
         int w = h * 2 / 3.0;
@@ -209,7 +225,9 @@ class roiViewerNode
         if (show_confidence)
         {
           // Draw roi confidence
-          float confidenceToDisplay = float(int(detection_msg->detections[i].confidence*100))/100;
+          float confidenceToDisplay = float(int(detection_msg->detections[i].confidence*100))/100 *0.1;
+          if (confidenceToDisplay > 1.0)
+        	  confidenceToDisplay = 1.0;
           std::stringstream conf_ss;
           conf_ss << confidenceToDisplay;
           double scale_factor = std::min(1.0, 2*double(image_msg->height) / 480);

@@ -44,10 +44,8 @@ namespace open_ptrack
   namespace detection
   {
 
-    DetectionSource::DetectionSource(cv::Mat image, tf::StampedTransform transform,
-        tf::StampedTransform inverse_transform, Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id) :
-	    image_(image), transform_(transform), inverse_transform_(inverse_transform),
-	    intrinsic_matrix_(intrinsic_matrix), time_(time), duration_(0), frame_id_(frame_id)
+    DetectionSource::DetectionSource(cv::Mat image, Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id) :
+	    image_(image), intrinsic_matrix_(intrinsic_matrix), time_(time), duration_(0), frame_id_(frame_id)
     {
 
     }
@@ -58,73 +56,13 @@ namespace open_ptrack
     }
 
     void
-    DetectionSource::update(cv::Mat image, tf::StampedTransform transform,
-        tf::StampedTransform inverse_transform, Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id)
+    DetectionSource::update(cv::Mat image,  Eigen::Matrix3d intrinsic_matrix, ros::Time time, std::string frame_id)
     {
       image_ = image;
-      transform_ = transform;
-      inverse_transform_ = inverse_transform;
       intrinsic_matrix_ = intrinsic_matrix;
       duration_ = time - time_;
       time_ = time;
       frame_id_ = frame_id;
-    }
-
-    Eigen::Vector3d
-    DetectionSource::transform(const Eigen::Vector3d& v)
-    {
-      Eigen::Vector3d ret;
-      tf::Vector3 t(v(0), v(1), v(2));
-      t = transform_(t);
-      ret(0) = t.getX();
-      ret(1) = t.getY();
-      ret(2) = t.getZ();
-      return ret;
-    }
-
-    Eigen::Vector3d
-    DetectionSource::transform(const geometry_msgs::Vector3& v)
-    {
-      Eigen::Vector3d ret;
-      tf::Vector3 t;
-      tf::vector3MsgToTF(v, t);
-      t = transform_(t);
-      ret(0) = t.getX();
-      ret(1) = t.getY();
-      ret(2) = t.getZ();
-      return ret;
-    }
-
-    Eigen::Vector3d
-    DetectionSource::inverseTransform(const Eigen::Vector3d& v)
-    {
-      Eigen::Vector3d ret;
-      tf::Vector3 t(v(0), v(1), v(2));
-      //ROS_INFO("C: %f %f %f", t.getX(), t.getY(), t.getZ());
-      t = inverse_transform_(t);
-      ret(0) = t.getX();
-      ret(1) = t.getY();
-      ret(2) = t.getZ();
-      return ret;
-    }
-
-    Eigen::Vector3d
-    DetectionSource::inverseTransform(const geometry_msgs::Vector3& v)
-    {
-      Eigen::Vector3d ret;
-      tf::Vector3 t;
-      tf::vector3MsgToTF(v, t);
-      t = inverse_transform_(t);
-      ret(0) = t.getX();
-      ret(1) = t.getY();
-      ret(2) = t.getZ();
-      return ret;
-    }
-
-    Eigen::Vector3d
-    DetectionSource::transformToCam(const Eigen::Vector3d& v)
-    {
-      return open_ptrack::opt_utils::Conversions::world2cam(inverseTransform(v), intrinsic_matrix_);
     }
 
     cv::Mat&

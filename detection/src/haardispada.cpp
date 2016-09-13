@@ -121,6 +121,8 @@ namespace open_ptrack
           if(rtn== 1){
             // Compute classifier score:
             result = HDAC_.predict(HF, cv::Mat(), cv::Range::all(), false, true);
+            if (vertical_)
+            	result += 2.5;
           }
           else{
             ROS_ERROR("WHY O WHY");
@@ -257,6 +259,12 @@ namespace open_ptrack
     HaarDispAdaClassifier::getMinConfidence()
     {
       return min_confidence_;
+    }
+
+    void
+	HaarDispAdaClassifier::setOrientation(bool vertical)
+    {
+    	vertical_ = vertical;
     }
 
     void

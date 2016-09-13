@@ -43,7 +43,7 @@ open_ptrack::detection::GroundplaneEstimation<PointT>::GroundplaneEstimation (in
 {
   ground_estimation_mode_ = ground_estimation_mode;
 
-  if ((ground_estimation_mode > 3) || (ground_estimation_mode < 0))
+  if ((ground_estimation_mode > 4) || (ground_estimation_mode < 0))
   {
     ground_estimation_mode_ = 0;
     std::cout << "ERROR: invalid mode for groundplane segmentation. Manual mode is selected." << std::endl;
@@ -122,7 +122,7 @@ open_ptrack::detection::GroundplaneEstimation<PointT>::computeFromTF (std::strin
     tfListener.waitForTransform(camera_frame, ground_frame, ros::Time(0), ros::Duration(3.0), ros::Duration(0.01));
     tfListener.lookupTransform(camera_frame, ground_frame, ros::Time(0), worldToCamTransform);
   }
-  catch (tf::TransformException ex)
+  catch (tf::TransformException &ex)
   {
     ROS_ERROR("%s",ex.what());
   }
@@ -137,7 +137,7 @@ open_ptrack::detection::GroundplaneEstimation<PointT>::computeFromTF (std::strin
     ground_points->points[i].z = current_point.z();
   }
 
-  // Compute ground equation:
+  //  ground equation:
   std::vector<int> ground_points_indices;
   for (unsigned int i = 0; i < ground_points->points.size(); i++)
     ground_points_indices.push_back(i);
@@ -480,6 +480,41 @@ open_ptrack::detection::GroundplaneEstimation<PointT>::compute ()
     }
   }
 
+  if (ground_estimation_mode_ == 4)
+  {
+	  std::cout << "Automatic mode with known camera height for ground plane estimation." << std::endl;
+
+	  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>), cloud_pass (new pcl::PointCloud<pcl::PointXYZ>);
+	  pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+	  pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+	  pcl::SACSegmentation<pcl::PointXYZ> seg;
+	  Eigen::Vector3f axis = Eigen::Vector3f(0.0, 0.0, 1.0);
+
+	  seg.setAxis(axis);
+	  seg.setModelType (pcl::SACMODEL_PARALLEL_PLANE);
+	  seg.setMethodType (pcl::SAC_RANSAC);
+	  seg.setDistanceThreshold(0.1);
+
+	  pcl::copyPointCloud(*cloud_, *cloud_filtered);
+
+	  // filter all Points above the ground
+	  pcl::PassThrough<pcl::PointXYZ> pass;
+	  pass.setInputCloud (cloud_filtered);
+	  pass.setFilterFieldName ("y");
+	  pass.setFilterLimits (-(-cam_height_+0.15), -(-cam_height_-0.15));
+	  pass.filter (*cloud_pass);
+
+	  seg.setInputCloud(cloud_pass);
+	  seg.setEpsAngle(30.0f * (M_PI/180.0f) /*pcl::deg2rad((float)10));*/ ); //  for finding non-vertical planes
+
+	  seg.setOptimizeCoefficients (true);
+	  seg.segment(*inliers, *coefficients);
+
+	  if (inliers->indices.size () != 0)
+		  ground_coeffs << coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3];
+
+  }
+
   return ground_coeffs;
 }
 
@@ -606,6 +641,13 @@ open_ptrack::detection::GroundplaneEstimation<PointT>::refineGround (int num_ite
   }
 
   return updated;
+}
+
+
+template <typename PointT> void
+open_ptrack::detection::GroundplaneEstimation<PointT>::setCameraHeight(double cam_height)
+{
+	cam_height_ = cam_height;
 }
 
 template <typename PointT> void

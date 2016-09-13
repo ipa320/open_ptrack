@@ -52,8 +52,7 @@ open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::GroundBasedPeople
   // set default values for optional parameters:
   sampling_factor_ = 1;
   voxel_size_ = 0.06;
-  max_distance_ = 50.0;
-  vertical_ = false;
+  max_distance_ = 5.0;
   head_centroid_ = true;
   min_height_ = 1.3;
   max_height_ = 2.3;
@@ -122,12 +121,6 @@ open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::setClassifier (op
 {
   person_classifier_ = person_classifier;
   person_classifier_set_flag_ = true;
-}
-
-template <typename PointT> void
-open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::setSensorPortraitOrientation (bool vertical)
-{
-  vertical_ = vertical;
 }
 
 template <typename PointT> void
@@ -248,23 +241,6 @@ open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::extractRGBFromPoi
       (*output_cloud)(j,i) = rgb_point; 
     }
   }
-}
-
-template <typename PointT> void
-open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::swapDimensions (pcl::PointCloud<pcl::RGB>::Ptr& cloud)
-{
-  pcl::PointCloud<pcl::RGB>::Ptr output_cloud(new pcl::PointCloud<pcl::RGB>);
-  output_cloud->points.resize(cloud->height*cloud->width);
-  output_cloud->width = cloud->height;
-  output_cloud->height = cloud->width;
-  for (int i = 0; i < cloud->width; i++)
-  {
-    for (int j = 0; j < cloud->height; j++)
-    {
-      (*output_cloud)(j,i) = (*cloud)(cloud->width - i - 1, j);
-    }
-  }
-  cloud = output_cloud;
 }
 
 template <typename PointT> typename open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::PointCloudPtr
@@ -544,7 +520,6 @@ open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::compute (std::vec
     subclustering.setInitialClusters(cluster_indices);
     subclustering.setHeightLimits(min_height_, max_height_);
     subclustering.setMinimumDistanceBetweenHeads(heads_minimum_distance_);
-    subclustering.setSensorPortraitOrientation(vertical_);
     subclustering.subcluster(clusters);
 
 //    for (unsigned int i = 0; i < rgb_image_->points.size(); i++)
@@ -558,10 +533,6 @@ open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::compute (std::vec
     if (use_rgb_) // if RGB information can be used
     {
       // Person confidence evaluation with HOG+SVM:
-      if (vertical_)  // Rotate the image if the camera is vertical
-      {
-        swapDimensions(rgb_image_);
-      }
       for(typename std::vector<pcl::people::PersonCluster<PointT> >::iterator it = clusters.begin(); it != clusters.end(); ++it)
       {
         //Evaluate confidence for the current PersonCluster:
@@ -572,7 +543,7 @@ open_ptrack::detection::GroundBasedPeopleDetectionApp<PointT>::compute (std::vec
         Eigen::Vector3f bottom = intrinsics_matrix_ * (anti_transform_ * it->getTBottom());
         bottom /= bottom(2);
 
-        it->setPersonConfidence(person_classifier_.evaluate(rgb_image_, bottom, top, centroid, vertical_));
+        it->setPersonConfidence(person_classifier_.evaluate(rgb_image_, bottom, top, centroid));
       }
     }
     else

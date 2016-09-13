@@ -152,14 +152,6 @@ namespace open_ptrack
         setClassifier (open_ptrack::detection::PersonClassifier<pcl::RGB> person_classifier);
 
         /**
-         * \brief Set sensor orientation (vertical = true means portrait mode, vertical = false means landscape mode).
-         *
-         * \param[in] vertical Set landscape/portait camera orientation (default = false).
-         */
-        void
-        setSensorPortraitOrientation (bool vertical);
-
-        /**
          * \brief Set head_centroid_ to true (person centroid is in the head) or false (person centroid is the whole body centroid).
          *
          * \param[in] head_centroid Set the location of the person centroid (head or body center) (default = true).
@@ -280,14 +272,6 @@ namespace open_ptrack
         extractRGBFromPointCloud (PointCloudPtr input_cloud, pcl::PointCloud<pcl::RGB>::Ptr& output_cloud);
 
         /**
-         * \brief Swap rows/cols dimensions of a RGB point cloud (90 degrees counterclockwise rotation).
-         *
-         * \param[in,out] cloud A pointer to a RGB point cloud.
-         */
-        void
-        swapDimensions (pcl::PointCloud<pcl::RGB>::Ptr& cloud);
-
-        /**
          * \brief Rotate the input cloud according to transform
          *
          * \param[in] cloud Pointer to the input point cloud.
@@ -359,9 +343,6 @@ namespace open_ptrack
 
         /** \brief person clusters minimum height from the ground plane */
         float min_height_;
-
-        /** \brief if true, the sensor is considered to be vertically placed (portrait mode) */
-        bool vertical_;
 
         /** \brief if true, the person centroid is computed as the centroid of the cluster points belonging to the head;
          * if false, the person centroid is computed as the centroid of the whole cluster points (default = true) */

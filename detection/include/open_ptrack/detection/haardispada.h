@@ -99,6 +99,7 @@ namespace open_ptrack
         int getMaxSamples(){ return(maxSamples_);};
         float getMinConfidence();
         void setMinConfidence(float );
+        void setOrientation(bool vertical);
 
       private:
         CvBoost HDAC_;
@@ -122,6 +123,7 @@ namespace open_ptrack
 
         // Minimum classifier confidence for people detection:
         float min_confidence_;
+        bool vertical_;
 
         // private functions
         void setDImageRoi(Rect &R_in, Mat &I_in);

@@ -176,142 +176,69 @@ open_ptrack::detection::PersonClassifier<PointT>::resize (PointCloudPtr& input_i
   }
 }
 
-template <typename PointT> void
-open_ptrack::detection::PersonClassifier<PointT>::copyMakeBorder (PointCloudPtr& input_image,
-                  PointCloudPtr& output_image,
-                  int xmin,
-                  int ymin,
-                  int width,
-                  int height)
-{
-  PointT black_point;
-  black_point.r = 0;
-  black_point.g = 0;
-  black_point.b = 0;
-  output_image->points.resize(height*width, black_point);
-  output_image->width = width;
-  output_image->height = height;
-
-  int x_start_in = std::max(0, xmin);
-  int x_end_in = std::max(x_start_in, std::min(int(input_image->width-1), xmin+width-1));
-  int y_start_in = std::max(0, ymin);
-  int y_end_in = std::max(y_start_in, std::min(int(input_image->height-1), ymin+height-1));
-
-  int x_start_out = std::max(0, -xmin);
-  //int x_end_out = x_start_out + (x_end_in - x_start_in);
-  int y_start_out = std::max(0, -ymin);
-  //int y_end_out = y_start_out + (y_end_in - y_start_in);
-
-//std::cout << "inside copyMakeBorder: " << x_start_in << " " << x_end_in << " " << y_start_in << " " << y_end_in << std::endl;
-//std::cout << "inside copyMakeBorder2: " << x_start_out << " " << y_start_out << " " << " " << x_end_in - x_start_in + 1 << " " << y_end_in - y_start_in + 1 << std::endl;
-
-  for (unsigned int i = 0; i < (y_end_in - y_start_in + 1); i++)
-  {
-  for (unsigned int j = 0; j < (x_end_in - x_start_in + 1); j++)
-  {
-    (*output_image)(x_start_out + j, y_start_out + i) = (*input_image)(x_start_in + j, y_start_in + i);
-  }
-  }
-}
-
 template <typename PointT> double
-open_ptrack::detection::PersonClassifier<PointT>::evaluate (float height_person,
-              float xc,
-              float yc,
-              PointCloudPtr& image)
+open_ptrack::detection::PersonClassifier<PointT>::evaluate (PointCloudPtr& image, Eigen::Vector3f& bottom, Eigen::Vector3f& top,
+              Eigen::Vector3f& centroid)
 {
-  if (SVM_weights_.size() == 0)
-  {
-  PCL_ERROR ("[open_ptrack::detection::PersonClassifier::evaluate] SVM has not been set!\n");
-  return (-1000);
-  }
+    float height_person = bottom(1) - top(1);
+    float xc = centroid(0);
+    float yc = centroid(1);
 
-  int height = floor((height_person * window_height_) / (0.75 * window_height_) + 0.5);  // floor(i+0.5) = round(i)
-  int width = floor((height_person * window_width_) / (0.75 * window_height_) + 0.5);
-  int xmin = floor(xc - width / 2 + 0.5);
-  int ymin = floor(yc - height / 2 + 0.5);
-  double confidence;
+    if (SVM_weights_.size() == 0)
+     {
+         PCL_ERROR ("[pcl::people::PersonClassifier::evaluate] SVM has not been set!\n");
+         return (-1000);
+     }
 
-//std::cout << "Before copyMakeBorder: " << xmin << " " << ymin << " " << width << " " << height << std::endl;
+     int height = floor((height_person * window_height_) / (0.75 * window_height_) + 0.5);  // floor(i+0.5) = round(i)
+     int width = floor((height_person * window_width_) / (0.75 * window_height_) + 0.5);
+     int xmin = floor(xc - width / 2 + 0.5);
+     int ymin = floor(yc - height / 2 + 0.5);
+     double confidence;
 
-  if ((height > 0) & ((xmin+width-1) > 0))
-  {
-    // If near the border, fill with black:
-    PointCloudPtr box(new PointCloud);
-    copyMakeBorder(image, box, xmin, ymin, width, height);
-    
-    // Make the image match the correct size (used in the training stage):
-    PointCloudPtr sample(new PointCloud);
-    resize(box, sample, window_width_, window_height_);
-    
-    // Convert the image to array of float:
-    float* sample_float = new float[sample->width * sample->height * 3]; 
-    int delta = sample->height * sample->width;
-    for(int row = 0; row < sample->height; row++)
-    {
-      for(int col = 0; col < sample->width; col++)
-      {
-        sample_float[row + sample->height * col] = ((float) ((*sample)(col, row).r))/255; //ptr[col * 3 + 2];
-        sample_float[row + sample->height * col + delta] = ((float) ((*sample)(col, row).g))/255; //ptr[col * 3 + 1];
-        sample_float[row + sample->height * col + delta * 2] = (float) (((*sample)(col, row).b))/255; //ptr[col * 3];
-      }
-    }
-    
-    // Calculate HOG descriptor:
-    pcl::people::HOG hog;
-    float *descriptor = (float*) calloc(SVM_weights_.size(), sizeof(float));
-    hog.compute(sample_float, descriptor);
-    
-    // Calculate confidence value by dot product:
-    confidence = 0.0;
-    for(unsigned int i = 0; i < SVM_weights_.size(); i++)
-    { 
-      confidence += SVM_weights_[i] * descriptor[i];
-    }
-    // Confidence correction:
-    confidence -= SVM_offset_;  
+     if (height > 0)
+     {
+      // Make the image match the correct size (used in the training stage):
+       PointCloudPtr sample(new pcl::PointCloud<pcl::RGB>);
+       resize(image, sample, window_width_, window_height_);
 
-    delete[] descriptor;
-    delete[] sample_float;
-  }
-  else
-  {
-    confidence = std::numeric_limits<double>::quiet_NaN();
-  } 
-  
-  return confidence;
+       // Convert the image to array of float:
+       float* sample_float = new float[sample->width * sample->height * 3];
+       int delta = sample->height * sample->width;
+       for(int row = 0; row < sample->height; row++)
+       {
+         for(int col = 0; col < sample->width; col++)
+         {
+           sample_float[row + sample->height * col] = ((float) ((*sample)(col, row).r))/255; //ptr[col * 3 + 2];
+           sample_float[row + sample->height * col + delta] = ((float) ((*sample)(col, row).g))/255; //ptr[col * 3 + 1];
+           sample_float[row + sample->height * col + delta * 2] = (float) (((*sample)(col, row).b))/255; //ptr[col * 3];
+         }
+       }
+
+       // Calculate HOG descriptor:
+       pcl::people::HOG hog;
+       float *descriptor = (float*) calloc(SVM_weights_.size(), sizeof(float));
+       hog.compute(sample_float, descriptor);
+
+       // Calculate confidence value by dot product:
+       confidence = 0.0;
+       for(unsigned int i = 0; i < SVM_weights_.size(); i++)
+       {
+         confidence += SVM_weights_[i] * descriptor[i];
+       }
+       // Confidence correction:
+       confidence -= SVM_offset_;
+
+       delete[] descriptor;
+       delete[] sample_float;
+     }
+     else
+     {
+       confidence = std::numeric_limits<double>::quiet_NaN();
+     }
+
+     return confidence;
 }
 
-template <typename PointT> double
-open_ptrack::detection::PersonClassifier<PointT>::evaluate (PointCloudPtr& image,
-              Eigen::Vector3f& bottom,
-              Eigen::Vector3f& top,
-              Eigen::Vector3f& centroid,
-              bool vertical)
-{
-  float pixel_height;
-  float pixel_width;
 
-  if (!vertical)
-  {
-    pixel_height = bottom(1) - top(1);
-    pixel_width = pixel_height / 2.0f;
-  }
-  else
-  {
-    pixel_width = top(0) - bottom(0);
-    pixel_height = pixel_width / 2.0f;
-  }
-  float pixel_xc = centroid(0);
-  float pixel_yc = centroid(1);
-
-  if (!vertical)
-  {
-    return (evaluate(pixel_height, pixel_xc, pixel_yc, image));
-  }
-  else
-  {
-    return (evaluate(pixel_width, pixel_yc, image->height-pixel_xc+1, image));
-  }
-}
 #endif /* OPEN_PTRACK_DETECTION_PERSON_CLASSIFIER_HPP_ */

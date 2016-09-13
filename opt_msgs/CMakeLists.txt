@@ -1,12 +1,42 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(opt_msgs)
-find_package(catkin REQUIRED COMPONENTS roscpp message_generation geometry_msgs sensor_msgs)
 
-add_message_files(FILES Rois.msg RoiRect.msg HumanEntry.msg HumanEntries.msg BoundingBox2D.msg BoundingBox3D.msg Detection.msg DetectionArray.msg Track.msg TrackArray.msg CalibrationStatus.msg IDArray.msg)
+find_package(
+  catkin REQUIRED COMPONENTS 
+  geometry_msgs
+  message_generation 
+  roscpp 
+  sensor_msgs
+)
 
-add_service_files(FILES OPTSensor.srv OPTTransform.srv)
+add_message_files(
+  FILES 
+  BoundingBox2D.msg 
+  BoundingBox3D.msg 
+  CalibrationStatus.msg
+  Detection.msg 
+  DetectionArray.msg  
+  HumanEntry.msg 
+  HumanEntries.msg
+  IDArray.msg
+  Rois.msg 
+  RoiRect.msg 
+  Track.msg 
+  TrackArray.msg 
+)
 
-generate_messages(DEPENDENCIES std_msgs geometry_msgs sensor_msgs)
+add_service_files(
+  FILES 
+  OPTSensor.srv
+  OPTTransform.srv
+)
+
+generate_messages(
+  DEPENDENCIES 
+  geometry_msgs 
+  sensor_msgs
+  std_msgs 
+)
 
 
 catkin_package(
